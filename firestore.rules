@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.admin == true);
+    }
+
+    // User metadata & per-user private journal entries
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+
+      match /entries/{entryId} {
+        allow read, write, create, update, delete: if isOwner(userId);
+      }
+      
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Global Admin Collection
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
