@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^5.6.0",
-    "@google/genai": "^0.1.1",
+    "@google/genai": "^2.21.0",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
