@@ -1,107 +1,165 @@
-# Secure AI Journal App on Cloud Run ("MindReflect AI")
+# 📔 MindReflect AI — Secure AI Journal on Google Cloud Run
 
-> 🏆 Official Submission for the **Google Cloud Gen AI Academy APAC Edition Ideathon Challenge**.
+<div align="center">
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-success?style=for-the-badge&logo=vercel)](https://secure-ai-journal-app-br3843311-7472s-projects.vercel.app)
-[![Challenge](https://img.shields.io/badge/Google%20Cloud-Gen%20AI%20Academy-blue?style=for-the-badge&logo=googlecloud)](https://github.com/ranjithbrs/secure-ai-journal-app)
-[![Mandatory Label](https://img.shields.io/badge/Cloud%20Run%20Label-dev--tutorial%3Dcloud--run--ai--challenge-orange?style=for-the-badge)](https://github.com/ranjithbrs/secure-ai-journal-app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://secure-ai-journal-app-br3843311-7472s-projects.vercel.app)
+[![Google Cloud Run](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
+[![Gemini 2.5 Flash](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-8E75C4?style=for-the-badge&logo=googlegemini&logoColor=white)](https://cloud.google.com/vertex-ai)
+[![React 18](https://img.shields.io/badge/React-18%20%2B%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
----
+<br>
 
-### 🌐 Live Links & Demos
-- 🚀 **Live Interactive Web App**: [https://secure-ai-journal-app-br3843311-7472s-projects.vercel.app](https://secure-ai-journal-app-br3843311-7472s-projects.vercel.app)
-- 📢 **Social Media Demo Post**: [LinkedIn Post with #AccelerateAIwithCloudRun](https://lnkd.in/p/e9jNfGD2)
-- 📦 **Source Code Repository**: [https://github.com/ranjithbrs/secure-ai-journal-app](https://github.com/ranjithbrs/secure-ai-journal-app)
+**🏆 Official Submission for the Google Cloud Gen AI Academy APAC Edition Ideathon Challenge.**  
+*A privacy-first, intelligent journaling application featuring real-time emotion scoring, contextual AI self-reflection prompts, and zero-trust user isolation.*
 
----
-
-## 🌟 Architecture & Key Features
-
-```
- +-----------------------------------------------------------------------+
- |                       Client (React 18 + Vite)                        |
- | - Firebase Auth (Google Sign-In)   - Interactive Location Map View     |
- | - Rich Journal Editor & AI Insights - Role-Based Admin Dashboard       |
- +-----------------------------------------------------------------------+
-                                  |
-                  HTTPS (Firebase ID Token Bearer)
-                                  v
- +-----------------------------------------------------------------------+
- |                  Backend (Node.js + Express Server)                   |
- | - Firebase Admin SDK (Auth & Firestore verification)                  |
- | - Google Gen AI SDK (@google/genai for Gemini 2.5 Flash)              |
- | - Secret Manager client / env setup for API Key security              |
- | - Notification Dispatcher (Slack/Discord Webhooks & Email)             |
- +-----------------------------------------------------------------------+
-                      /                       \
-                     v                         v
-      +----------------------------+  +----------------------------+
-      |   Firestore Database       |  |  Google Cloud Run          |
-      | - Private /users/{uid}/... |  | - Mandatory Label:         |
-      | - Strict firestore.rules   |  |   dev-tutorial=            |
-      | - Admin metadata collection|  |   cloud-run-ai-challenge   |
-      +----------------------------+  +----------------------------+
-```
-
-1. **Authentication**: Firebase Authentication with Google OAuth 2.0 and JWT token verification.
-2. **Gemini 2.5 Flash Integration**:
-   - Automated journal entry sentiment tagging and emotion scoring.
-   - Intelligent self-reflection follow-up prompts.
-   - Real-time multi-turn conversational AI companion ("MindReflect Companion").
-3. **User-Isolated Private Storage**:
-   - Firestore subcollections under `/users/{uid}/entries/{entryId}`.
-   - Enforced by production `firestore.rules` ensuring complete data privacy.
-4. **Secret Manager Security**:
-   - Dynamic Google Cloud Secret Manager retrieval for `GEMINI_API_KEY` (zero hardcoded secrets).
-5. **Enhancements**:
-   - 📍 Location-Aware Reflections using HTML5 Geolocation API.
-   - 🛡️ Role-Based Admin Dashboard (RBAC) with system metrics and Cloud Run verification.
-   - 🔔 Webhook Notification Dispatcher (Slack & Discord).
+</div>
 
 ---
 
-## 💻 Local Setup & Development
+## 🌐 Live Demos & Links
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/ranjithbrs/secure-ai-journal-app.git
-   cd secure-ai-journal-app
-   npm install
-   ```
-
-2. **Configure Environment Variables (`.env`)**:
-   ```env
-   PORT=8080
-   GEMINI_API_KEY=your_gemini_api_key_here
-   VITE_FIREBASE_API_KEY=your_firebase_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your_project_id
-   ```
-
-3. **Run Locally**:
-   ```bash
-   npm run dev      # Launch React frontend (Vite)
-   npm run server   # Launch Express backend server
-   ```
+- 🚀 **Live Interactive Web App**: [secure-ai-journal-app-br3843311-7472s-projects.vercel.app](https://secure-ai-journal-app-br3843311-7472s-projects.vercel.app)
+- 📢 **Official Demo Video / Post**: [LinkedIn Post with #AccelerateAIwithCloudRun](https://lnkd.in/p/e9jNfGD2)
+- 📦 **Source Code Repository**: [github.com/ranjithbrs/secure-ai-journal-app](https://github.com/ranjithbrs/secure-ai-journal-app)
 
 ---
 
-## 🚀 Deployment to Google Cloud Run
+## 📐 System Architecture & Data Flow
 
-To build and deploy the container to Google Cloud Run with the mandatory verification label:
+```mermaid
+flowchart TD
+    subgraph Client["📱 Client (React 18 + Vite + Tailwind)"]
+        A[User Login / Google Sign-In] --> B[Rich Markdown Journal Editor]
+        B -->|Draft Journal Entry| C[HTML5 Geolocation API]
+        C --> D[Submit Entry with Bearer ID Token]
+    end
 
-### PowerShell (Windows):
-```powershell
-.\deploy-cloudrun.ps1
+    subgraph Backend["⚙️ Backend Server (Node.js / Express on Cloud Run)"]
+        D --> E{Verify Firebase JWT Token}
+        E -->|Authenticated| F[Fetch Secret via Secret Manager]
+        F --> G[Google Gen AI SDK / Gemini 2.5 Flash]
+        G --> H[Analyze Sentiment & Emotion Scores]
+        G --> I[Generate Deep Self-Reflection Follow-ups]
+    end
+
+    subgraph Storage["🗄️ Isolated Data Storage & Notifications"]
+        H --> J[(Cloud Firestore)]
+        I --> J
+        J -->|User Subcollection: /users/uid/entries| K[Enforced by firestore.rules]
+        H -->|Optional Alert| L[Discord / Slack Webhook Dispatcher]
+    end
+
+    subgraph Admin["🛡️ Governance"]
+        J --> M[Role-Based Access Control Admin Panel]
+        M --> N[Audit Dashboard & System Metrics]
+    end
 ```
 
-### Bash (Linux / Cloud Shell):
+---
+
+## ✨ Key Technical Highlights
+
+1. **Gemini 2.5 Flash Cognitive Engine**:
+   - Automated sentiment classification and multi-dimensional emotional breakdown (Joy, Optimism, Anxiety, Fatigue).
+   - Generates contextual, open-ended introspective prompts tailored to the user's reflection history.
+   - Interactive conversational companion ("MindReflect Companion") for exploring thoughts in real time.
+
+2. **Zero-Trust Privacy & Security**:
+   - Strict Firebase security rules (`firestore.rules`) ensure users can **only read and write their own documents** (`/users/{uid}/entries/{entryId}`).
+   - Dynamic Google Cloud Secret Manager integration ensures `GEMINI_API_KEY` is loaded in-memory and never exposed to the client bundle.
+
+3. **Cloud Native & Serverless**:
+   - Containerized with Docker and optimized for **Google Cloud Run** deployment with the mandatory verification tag:
+     ```bash
+     --update-labels dev-tutorial=cloud-run-ai-challenge
+     ```
+   - Auto-scales from 0 to N instances on demand.
+
+4. **Location-Aware Context**:
+   - Optional geolocation capture tags entries with coordinates and city information to visualize personal memories on an interactive map.
+
+---
+
+## 📂 Project Structure
+
+```text
+secure-ai-journal-app/
+├── server/
+│   └── index.js              # Express API server, Gemini AI integration & auth middleware
+├── src/
+│   ├── components/           # React UI components (Editor, MoodTracker, MapView, Admin)
+│   ├── context/              # Firebase Auth & Journal state management
+│   ├── firebase.js           # Firebase Client SDK configuration
+│   ├── App.jsx               # Application routing and view controllers
+│   └── main.jsx              # React DOM entrypoint
+├── firestore.rules           # Production security rules for Firestore
+├── Dockerfile                # Multi-stage production container build
+├── deploy-cloudrun.ps1       # PowerShell deployment script for Cloud Run
+├── deploy-cloudrun.sh        # Shell deployment script for Linux / Cloud Shell
+├── package.json              # Node.js dependencies and scripts
+└── README.md                 # Project documentation
+```
+
+---
+
+## 🚀 Local Development
+
+### 1. Clone the repository
 ```bash
-chmod +x deploy-cloudrun.sh
-./deploy-cloudrun.sh
+git clone https://github.com/ranjithbrs/secure-ai-journal-app.git
+cd secure-ai-journal-app
+npm install
 ```
 
-**Verification Tag Applied**:
-```bash
---update-labels dev-tutorial=cloud-run-ai-challenge
+### 2. Configure Environment (`.env`)
+```env
+PORT=8080
+GEMINI_API_KEY=your_gemini_api_key
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
 ```
+
+### 3. Run Development Server
+```bash
+# Start Vite frontend
+npm run dev
+
+# In another terminal, start Express server
+npm run server
+```
+
+---
+
+## ☁️ Cloud Run Deployment Command
+
+```bash
+gcloud run deploy secure-ai-journal-app \
+    --source . \
+    --platform managed \
+    --region us-central1 \
+    --allow-unauthenticated \
+    --update-labels dev-tutorial=cloud-run-ai-challenge
+```
+
+---
+
+## 👨‍💻 Author
+
+**Ranjith B**  
+🎓 *B.Tech Computer Science & Business Systems (CSBS)*  
+🏛️ *Nehru Institute of Engineering and Technology, Coimbatore*  
+
+- 💼 **LinkedIn**: [linkedin.com/in/ranjith-b-85907831a](https://linkedin.com/in/ranjith-b-85907831a)  
+- 🐙 **GitHub**: [github.com/ranjithbrs](https://github.com/ranjithbrs)  
+- 🌐 **Portfolio**: [ranjithbrs.github.io/portfolio](https://ranjithbrs.github.io/portfolio/)  
+- 📧 **Email**: ranjithb2k06@gmail.com  
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
