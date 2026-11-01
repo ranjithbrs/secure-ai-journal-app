@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { initFirebaseAdmin } from './config/firebase.js';
 import { getGeminiApiKey } from './config/secrets.js';
+import { corsOptions } from './config/cors.js';
 import journalRoutes from './routes/journal.js';
 import aiRoutes from './routes/ai.js';
 import adminRoutes from './routes/admin.js';
@@ -27,20 +28,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS Configuration: Supports local development and production origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['*'];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Blocked by CORS policy'));
-  },
-  credentials: true
-}));
+// Explicit CORS Configuration: Zero wildcard default
+app.use(cors(corsOptions));
 
 // Body parser with strict payload size limit (mitigates DoS memory exhaustion)
 app.use(express.json({ limit: '100kb' }));
@@ -73,6 +62,13 @@ app.get('*', (req, res) => {
 
 // Centralized Error Handling Middleware (prevents stack trace leaks)
 app.use((err, req, res, next) => {
+  if (err.message && err.message.includes('CORS policy violation')) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: err.message
+    });
+  }
+
   console.error('Unhandled Server Error:', err.message);
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
