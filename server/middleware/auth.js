@@ -3,6 +3,7 @@ import { auth } from '../config/firebase.js';
 /**
  * Authentication Middleware:
  * Validates Firebase ID Tokens passed via Authorization: Bearer <token>
+ * Enforces active token revocation checks via verifyIdToken(idToken, true)
  * Attaches decoded user identity (uid, email, custom claims) to req.user
  */
 export async function verifyAuth(req, res, next) {
@@ -32,8 +33,8 @@ export async function verifyAuth(req, res, next) {
   }
 
   try {
-    // Verify cryptographic signature, expiration, and issuer
-    const decodedToken = await auth.verifyIdToken(idToken);
+    // Security Hardening: Enforce checkRevoked=true to reject revoked tokens immediately
+    const decodedToken = await auth.verifyIdToken(idToken, true);
     
     // Attach sanitized user context
     req.user = {
@@ -47,18 +48,18 @@ export async function verifyAuth(req, res, next) {
 
     next();
   } catch (err) {
-    // Specific error mapping for debugging and client clarity
-    if (err.code === 'auth/id-token-expired') {
-      return res.status(401).json({ 
-        error: 'TokenExpired', 
-        message: 'Firebase ID token has expired. Please refresh your session.' 
-      });
-    }
-
+    // Specific error mapping for client security and session handling
     if (err.code === 'auth/id-token-revoked') {
       return res.status(401).json({ 
         error: 'TokenRevoked', 
         message: 'Token has been revoked. Please sign in again.' 
+      });
+    }
+
+    if (err.code === 'auth/id-token-expired') {
+      return res.status(401).json({ 
+        error: 'TokenExpired', 
+        message: 'Firebase ID token has expired. Please refresh your session.' 
       });
     }
 

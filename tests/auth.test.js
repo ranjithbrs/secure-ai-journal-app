@@ -72,10 +72,15 @@ describe('Authentication Middleware (verifyAuth)', () => {
     assert.strictEqual(nextCalled, false);
   });
 
-  it('should verify valid token and attach sanitized user identity to req.user', async () => {
+  it('should verify valid token, pass checkRevoked=true, and attach sanitized user identity to req.user', async () => {
     const validToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.validpayloadstringhere1234567890';
+    let capturedCheckRevoked = null;
+    let capturedToken = null;
+
     setAuthMock({
-      async verifyIdToken(token) {
+      async verifyIdToken(token, checkRevoked) {
+        capturedToken = token;
+        capturedCheckRevoked = checkRevoked;
         if (token === validToken) {
           return {
             uid: 'verified_user_999',
@@ -96,8 +101,44 @@ describe('Authentication Middleware (verifyAuth)', () => {
     await verifyAuth(req, res, next);
 
     assert.strictEqual(nextCalled, true);
+    assert.strictEqual(capturedToken, validToken);
+    assert.strictEqual(capturedCheckRevoked, true, 'verifyIdToken MUST be called with checkRevoked=true');
     assert.strictEqual(req.user.uid, 'verified_user_999');
     assert.strictEqual(req.user.email, 'user@example.com');
+  });
+
+  it('should handle revoked token with 401 and TokenRevoked code', async () => {
+    const revokedToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.revokedpayloadstringhere1234567890';
+    let passedCheckRevoked = null;
+
+    setAuthMock({
+      async verifyIdToken(token, checkRevoked) {
+        passedCheckRevoked = checkRevoked;
+        const err = new Error('The Firebase ID token has been revoked.');
+        err.code = 'auth/id-token-revoked';
+        throw err;
+      }
+    });
+
+    let statusCode = null;
+    let jsonBody = null;
+    const req = { headers: { authorization: `Bearer ${revokedToken}` } };
+    const res = {
+      status(code) {
+        statusCode = code;
+        return { json: (body) => { jsonBody = body; } };
+      }
+    };
+    let nextCalled = false;
+    const next = () => { nextCalled = true; };
+
+    await verifyAuth(req, res, next);
+
+    assert.strictEqual(passedCheckRevoked, true, 'verifyIdToken checkRevoked argument should be true');
+    assert.strictEqual(statusCode, 401);
+    assert.strictEqual(jsonBody.error, 'TokenRevoked');
+    assert.strictEqual(jsonBody.message, 'Token has been revoked. Please sign in again.');
+    assert.strictEqual(nextCalled, false);
   });
 
   it('should handle expired token with 401 and TokenExpired code', async () => {
