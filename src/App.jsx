@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, loginWithGoogle, logoutUser } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { BookOpen, Sparkles, MapPin, Shield, Bell, LogIn, LogOut, Heart, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Sparkles, MapPin, Shield, Bell, LogIn, LogOut, Heart, CheckCircle2, Pencil, Trash2, X } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -10,6 +10,7 @@ export default function App() {
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [locationStr, setLocationStr] = useState('');
+  const [editingEntryId, setEditingEntryId] = useState(null);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([
     { role: 'model', text: 'Hello! I am MindReflect AI, your compassionate journaling companion powered by Gemini 2.5 Flash. What is on your mind today?' }
@@ -116,6 +117,38 @@ export default function App() {
     }
   };
 
+  const handleEditEntry = (entry) => {
+    setEditingEntryId(entry.id);
+    setNewTitle(entry.title || '');
+    setNewContent(entry.content || '');
+    setLocationStr(entry.location?.name || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEntryId(null);
+    setNewTitle('');
+    setNewContent('');
+    setLocationStr('');
+  };
+
+  const handleDeleteEntry = async (id) => {
+    try {
+      if (user && typeof user.getIdToken === 'function') {
+        const token = await user.getIdToken();
+        await fetch(`/api/entries/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch (err) {
+      console.warn("Delete request error:", err.message);
+    }
+    setEntries((prev) => prev.filter((item) => item.id !== id));
+    if (editingEntryId === id) {
+      handleCancelEdit();
+    }
+  };
+
   const handleSaveEntry = async (e) => {
     e.preventDefault();
     if (!newContent.trim() || !user) return;
@@ -123,8 +156,11 @@ export default function App() {
 
     try {
       const token = await user.getIdToken();
-      const res = await fetch('/api/entries', {
-        method: 'POST',
+      const endpoint = editingEntryId ? `/api/entries/${editingEntryId}` : '/api/entries';
+      const method = editingEntryId ? 'PUT' : 'POST';
+
+      const res = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -139,31 +175,42 @@ export default function App() {
       if (res.ok) {
         fetchEntries(user);
       } else {
-        throw new Error('Fallback to local AI analysis');
+        throw new Error('Fallback to local state handling');
       }
     } catch (err) {
-      // Local fallback for frontend-only hosts (Vercel)
-      const sentiments = ['inspired', 'reflective', 'positive', 'focused'];
-      const chosenSentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
-      const newEntry = {
-        id: Date.now().toString(),
-        title: newTitle || 'Untitled Reflection',
-        content: newContent,
-        location: locationStr ? { name: locationStr } : null,
-        aiInsight: {
-          sentiment: chosenSentiment,
-          sentimentScore: 0.85,
-          summary: newContent.slice(0, 80) + '...',
-          keyThemes: ['Journal', 'Reflection', 'Mindfulness'],
-          aiReflectionPrompt: 'What is one lesson from this experience you would like to carry forward?'
-        },
-        createdAt: new Date().toISOString()
-      };
-      setEntries((prev) => [newEntry, ...prev]);
+      if (editingEntryId) {
+        setEntries((prev) => prev.map((item) => item.id === editingEntryId ? {
+          ...item,
+          title: newTitle || item.title,
+          content: newContent,
+          location: locationStr ? { name: locationStr } : null,
+          updatedAt: new Date().toISOString()
+        } : item));
+      } else {
+        // Local fallback for frontend-only hosts (Vercel)
+        const sentiments = ['inspired', 'reflective', 'positive', 'focused'];
+        const chosenSentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
+        const newEntry = {
+          id: Date.now().toString(),
+          title: newTitle || 'Untitled Reflection',
+          content: newContent,
+          location: locationStr ? { name: locationStr } : null,
+          aiInsight: {
+            sentiment: chosenSentiment,
+            sentimentScore: 0.85,
+            summary: newContent.slice(0, 80) + '...',
+            keyThemes: ['Journal', 'Reflection', 'Mindfulness'],
+            aiReflectionPrompt: 'What is one lesson from this experience you would like to carry forward?'
+          },
+          createdAt: new Date().toISOString()
+        };
+        setEntries((prev) => [newEntry, ...prev]);
+      }
     } finally {
       setNewTitle('');
       setNewContent('');
       setLocationStr('');
+      setEditingEntryId(null);
       setLoading(false);
     }
   };
@@ -320,10 +367,22 @@ export default function App() {
                 {/* Editor Section */}
                 <div className="lg:col-span-7 space-y-6">
                   <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 shadow-xl">
-                    <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2 text-indigo-400">
-                      <BookOpen className="w-5 h-5" />
-                      <span>New Reflection</span>
-                    </h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold flex items-center space-x-2 text-indigo-400">
+                        <BookOpen className="w-5 h-5" />
+                        <span>{editingEntryId ? 'Edit Reflection' : 'New Reflection'}</span>
+                      </h2>
+                      {editingEntryId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="flex items-center space-x-1 text-xs text-slate-400 hover:text-slate-200 transition"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Cancel Edit</span>
+                        </button>
+                      )}
+                    </div>
 
                     <form onSubmit={handleSaveEntry} className="space-y-4">
                       <input
@@ -396,6 +455,30 @@ export default function App() {
                             {item.aiInsight.aiReflectionPrompt}
                           </div>
                         )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-700/40 text-xs text-slate-400">
+                          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Just now'}</span>
+                          <div className="flex items-center space-x-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditEntry(item)}
+                              className="flex items-center space-x-1 hover:text-indigo-400 transition"
+                              title="Edit reflection"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(item.id)}
+                              className="flex items-center space-x-1 hover:text-red-400 transition"
+                              title="Delete reflection"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))
                   )}

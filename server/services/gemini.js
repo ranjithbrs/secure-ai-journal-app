@@ -1,6 +1,23 @@
 import { getGeminiApiKey } from '../config/secrets.js';
 
 const VALID_SENTIMENTS = new Set(['positive', 'reflective', 'neutral', 'stressed', 'anxious', 'inspired']);
+export const GEMINI_TIMEOUT_MS = 8000;
+
+/**
+ * Timeout wrapper for async operations to prevent hanging Cloud Run requests.
+ */
+export function withTimeout(promise, ms = GEMINI_TIMEOUT_MS, errorMsg = 'Gemini API call timed out') {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const err = new Error(errorMsg);
+      err.code = 'DEADLINE_EXCEEDED';
+      reject(err);
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
 
 /**
  * Robust JSON parser that extracts valid JSON objects even if LLM includes
@@ -77,7 +94,7 @@ export function sanitizeAnalysisOutput(parsed, fallbackContent = '') {
   };
 }
 
-export async function analyzeJournalEntry(content, locationStr = '', clientOverride = null) {
+export async function analyzeJournalEntry(content, locationStr = '', clientOverride = null, timeoutMs = GEMINI_TIMEOUT_MS) {
   // Edge Case 1: Empty or whitespace-only content
   if (!content || typeof content !== 'string' || content.trim().length === 0) {
     return {
@@ -142,35 +159,51 @@ Instructions:
 Output ONLY the raw JSON object. Do not include markdown code block formatting or conversational text.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
+    const response = await withTimeout(
+      ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      }),
+      timeoutMs
+    );
+
+    if (!response || !response.text) {
+      console.warn('Gemini returned empty text or safety block. Using fallback.');
+      return sanitizeAnalysisOutput({}, safeContent);
+    }
 
     const parsed = extractAndParseJSON(response.text);
     return sanitizeAnalysisOutput(parsed, safeContent);
   } catch (err) {
-    console.error('Gemini Analysis error / fallback triggered:', err.message);
+    if (err.code === 'DEADLINE_EXCEEDED' || err.message?.includes('timed out')) {
+      console.warn('Gemini analysis timed out. Applying graceful fallback.');
+    } else if (err.status === 429 || /RESOURCE_EXHAUSTED|quota|rate limit/i.test(err.message)) {
+      console.warn('Gemini rate limit exceeded. Applying graceful fallback.');
+    } else {
+      console.error('Gemini Analysis error / fallback triggered:', err.message);
+    }
     return sanitizeAnalysisOutput({}, safeContent);
   }
 }
 
-export async function chatWithCompanion(history, userMessage) {
+export async function chatWithCompanion(history, userMessage, clientOverride = null, timeoutMs = GEMINI_TIMEOUT_MS) {
   if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length === 0) {
     return 'I am listening. Feel free to share whatever is on your mind.';
   }
 
   const apiKey = await getGeminiApiKey();
-  if (!apiKey) {
+  if (!apiKey && !clientOverride) {
     return 'I am here with you. Could you share a bit more about what is on your mind?';
   }
 
-  let ai;
-  try {
-    const { GoogleGenAI } = await import('@google/genai');
-    ai = new GoogleGenAI({ apiKey });
-  } catch {
-    return 'I am here with you. Could you share a bit more about what is on your mind?';
+  let ai = clientOverride;
+  if (!ai) {
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      ai = new GoogleGenAI({ apiKey });
+    } catch {
+      return 'I am here with you. Could you share a bit more about what is on your mind?';
+    }
   }
 
   const systemInstruction = `You are MindReflect AI, a compassionate, empathetic, and insightful journaling assistant.
@@ -185,10 +218,19 @@ Never provide medical or psychiatric diagnoses. If severe distress is mentioned,
     });
 
     const safeMessage = userMessage.trim().slice(0, 2000);
-    const response = await chat.sendMessage({ message: safeMessage });
+    const response = await withTimeout(
+      chat.sendMessage({ message: safeMessage }),
+      timeoutMs
+    );
     return response.text || 'I am here with you. Take all the time you need.';
   } catch (err) {
-    console.error('Gemini Chat error:', err.message);
+    if (err.code === 'DEADLINE_EXCEEDED' || err.message?.includes('timed out')) {
+      console.warn('Gemini chat timed out.');
+    } else if (err.status === 429 || /RESOURCE_EXHAUSTED|rate limit|quota/i.test(err.message)) {
+      console.warn('Gemini Chat rate limited. Returning fallback response.');
+    } else {
+      console.error('Gemini Chat error:', err.message);
+    }
     return 'I hear you. What small step could bring you a sense of calm right now?';
   }
 }
