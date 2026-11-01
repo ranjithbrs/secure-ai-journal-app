@@ -9,6 +9,7 @@ import journalRoutes from './routes/journal.js';
 import aiRoutes from './routes/ai.js';
 import adminRoutes from './routes/admin.js';
 import notificationRoutes from './routes/notification.js';
+import userRoutes from './routes/user.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,7 @@ app.use('/api/entries', journalRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/user', userRoutes);
 
 // Health check endpoint for Cloud Run automated verification & probes
 app.get('/api/health', (req, res) => {
