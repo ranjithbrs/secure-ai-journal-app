@@ -2,9 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ==========================================
+    // Core Security & Authorization Functions
+    // ==========================================
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid != null;
     }
 
     function isOwner(userId) {
@@ -12,25 +14,67 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         request.auth.token.admin == true);
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
-    // User metadata & per-user private journal entries
-    match /users/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+    // ==========================================
+    // Schema & Data Validation Functions
+    // ==========================================
+    function isValidEntryData() {
+      let data = request.resource.data;
+      return data.content is string
+        && data.content.size() > 0
+        && data.content.size() <= 20000
+        && (!('title' in data) || (data.title is string && data.title.size() <= 200))
+        && (!('mood' in data) || data.mood is string);
+    }
 
+    // ==========================================
+    // User Profile & Role Security
+    // Prevents Privilege Escalation to 'admin'
+    // ==========================================
+    match /users/{userId} {
+      // Users can read their own profile; admins can inspect user metadata
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Creation: Regular users cannot grant themselves 'admin' role
+      allow create: if isOwner(userId) && (
+        !('role' in request.resource.data) ||
+        request.resource.data.role == 'user'
+      );
+
+      // Updates: Only existing admins can modify roles. Users can update other profile fields.
+      allow update: if isOwner(userId) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+        isAdmin()
+      );
+
+      // Deletion: Restricted to admins or the owning user
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // ==========================================
+      // Private Per-User Journal Entries
+      // Strict Data Isolation - ZERO cross-user access
+      // Even admins cannot read personal reflections!
+      // ==========================================
       match /entries/{entryId} {
-        allow read, write, create, update, delete: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidEntryData();
       }
-      
+
+      // Per-user Notification / App Settings
       match /settings/{settingId} {
         allow read, write: if isOwner(userId);
       }
     }
 
-    // Global Admin Collection
+    // ==========================================
+    // Admin Auditing & Global Metadata Collection
+    // ==========================================
     match /admin/{document=**} {
       allow read, write: if isAdmin();
     }

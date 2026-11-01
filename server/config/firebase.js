@@ -1,17 +1,34 @@
-import admin from 'firebase-admin';
+let adminInstance = null;
+let db = null;
+let auth = null;
 
-let db;
-let auth;
-
-export function initFirebaseAdmin() {
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault()
-    });
+export async function initFirebaseAdmin() {
+  if (!adminInstance) {
+    try {
+      const adminModule = await import('firebase-admin');
+      adminInstance = adminModule.default;
+      if (!adminInstance.apps.length) {
+        adminInstance.initializeApp({
+          credential: adminInstance.credential.applicationDefault()
+        });
+      }
+      db = adminInstance.firestore();
+      auth = adminInstance.auth();
+      console.log('Firebase Admin SDK initialized successfully.');
+    } catch (err) {
+      console.warn('Firebase Admin SDK initialization deferred or mocked:', err.message);
+    }
   }
-  db = admin.firestore();
-  auth = admin.auth();
-  console.log('Firebase Admin SDK initialized successfully.');
+  return { db, auth };
+}
+
+// Allow injecting mock auth or db for test isolation
+export function setAuthMock(mockAuth) {
+  auth = mockAuth;
+}
+
+export function setDbMock(mockDb) {
+  db = mockDb;
 }
 
 export { db, auth };

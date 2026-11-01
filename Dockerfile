@@ -14,6 +14,10 @@ RUN npm ci --only=production
 COPY --from=build-frontend /app/dist ./dist
 COPY --from=build-frontend /app/server ./server
 
+# Container Security: Enforce non-root execution with user 'node'
+RUN chown -R node:node /app
+USER node
+
 ENV PORT=8080
 ENV NODE_ENV=production
 EXPOSE 8080

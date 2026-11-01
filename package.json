@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^5.6.0",
